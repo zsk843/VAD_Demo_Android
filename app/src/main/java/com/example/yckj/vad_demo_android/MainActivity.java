@@ -75,8 +75,8 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-        Log.d("MainAcivity", Float.toString((end-start)/(float)repeat_time));
-        Log.d("MainAcivity", Float.toString(res[0]));
+//        Log.d("MainAcivity", Float.toString((end-start)/(float)repeat_time));
+//        Log.d("MainAcivity", Float.toString(res[0]));
 
         //Log.d(TAG, "Time is "+Float.toString((float)(endtime-startime)/repeat_time));
 
