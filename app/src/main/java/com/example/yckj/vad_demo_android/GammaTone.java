@@ -1,6 +1,7 @@
 package com.example.yckj.vad_demo_android;
 
 import java.math.*;
+import java.util.Arrays;
 
 import static java.lang.Math.cos;
 
@@ -80,15 +81,26 @@ public class GammaTone extends FeatureExtraction {
 //    }
 
     @Override
-    public void SetData(short[] data, long[] dim) {
-        raw_data = data;
+    public synchronized void SetData(short[] data, long[] dim) {
+        if(raw_data == null || raw_data.length!= data.length)
+            raw_data = new short[data.length];
+
+        for(int i = 0; i < data.length;i++)
+            raw_data[i] = data[i];
         frame_num = 1+(int)(Math.floor((data.length-frame_length)/frame_interval));
         output_dim = new long[]{frame_num,num_filters};
     }
 
     @Override
-    public float[] GetFeature() {
-        return GammaToneFeature(raw_data, factors, ifac, frame_length,frame_interval, filters,win);
+    public synchronized float[] GetFeature() {
+        float[] tmp = null;
+        try{
+            tmp = GammaToneFeature(raw_data, factors, ifac, frame_length,frame_interval, filters,win);
+        }catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        return tmp;
     }
 
     private void hamming_win(){
@@ -104,7 +116,7 @@ public class GammaTone extends FeatureExtraction {
 
     @Override
     public long[] GetDim() {
-        return new long[0];
+        return output_dim;
     }
 
     private native float[] GammaToneFeature(short[] data, float[] factors, int[] ifac, int frame_length, int frame_interval, float[] filters, double[] win);

@@ -52,7 +52,7 @@ Java_com_example_yckj_vad_1demo_1android_GammaTone_GammaToneFeature(JNIEnv *env,
                                                                     jshortArray data_,
                                                                     jfloatArray factors_, jintArray ifac_, jint frame_length, jint frame_interval, jfloatArray filters_, jdoubleArray win_) {
 //    int start = clock();
-    float g_floor = (float)exp(-50);
+    float g_floor = 0.00000001;
     float pre_emp = 0.97;
     int nfft = (int)pow(2, (int)(ceil(log(frame_length) / log(2))));
 
@@ -100,7 +100,7 @@ Java_com_example_yckj_vad_1demo_1android_GammaTone_GammaToneFeature(JNIEnv *env,
 
         res[i*gt_len] = 0;
 
-        for(k =0; k < gt_len-1;k++){
+        for(k =0; k < gt_len;k++){
             real = tmp_data[k*2+1];
             img = tmp_data[k*2+2];
             float tmp = sqrt(real*real+img*img);
@@ -112,13 +112,38 @@ Java_com_example_yckj_vad_1demo_1android_GammaTone_GammaToneFeature(JNIEnv *env,
     float b_swap[kc*nc];
     float dot_res[frame_num*num_filters];
     single_mmult(frame_num,num_filters,gt_len,res,a_swap,filters,b_swap,dot_res);
-    for(int i = 0; i < frame_num*num_filters;i++)
+    int curr_pos;
+
+    int inner_j;
+    float mean[num_filters];
+    float std[num_filters];
+
+    memset(mean,0,sizeof(float)*num_filters);
+    memset(std,0, sizeof(float)*num_filters);
+
+    for(int i = 0; i < num_filters;i++)
     {
-       if(dot_res[i]<g_floor)
-           dot_res[i] = g_floor;
-        dot_res[i] =(float) pow(dot_res[i],1.0/3);
+        for(inner_j = 0; inner_j < frame_num; inner_j++) {
+            curr_pos = inner_j*num_filters+i;
+            if (dot_res[curr_pos] < g_floor)
+                dot_res[curr_pos] = g_floor;
+            dot_res[curr_pos] = (float) pow(dot_res[curr_pos], 1.0 / 3);
+            mean[i] += dot_res[curr_pos];
+        }
+        mean[i] = mean[i]/(float)frame_num;
+
+        for(inner_j = 0; inner_j < frame_num; inner_j++) {
+            curr_pos = inner_j*num_filters+i;
+            std[i] += pow(mean[i] -dot_res[curr_pos],2);
+        }
+        std[i] = sqrt(std[i]/(float)frame_num);
+
+        for(inner_j = 0; inner_j < frame_num; inner_j++) {
+            curr_pos = inner_j*num_filters+i;
+            dot_res[curr_pos] = (dot_res[curr_pos]-mean[i])/std[i];
+        }
     }
-//    cout << "done";
+
     jfloatArray final_res = (*env).NewFloatArray(frame_num*num_filters);
     (*env).SetFloatArrayRegion(final_res, 0, frame_num*num_filters,dot_res);
 
