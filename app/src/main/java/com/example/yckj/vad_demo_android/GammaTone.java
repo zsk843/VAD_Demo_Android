@@ -2,6 +2,8 @@ package com.example.yckj.vad_demo_android;
 
 import java.math.*;
 
+import static java.lang.Math.cos;
+
 public class GammaTone extends FeatureExtraction {
 
     private short[] raw_data;
@@ -20,8 +22,10 @@ public class GammaTone extends FeatureExtraction {
     private int frame_length;
     private int frame_interval;
     public int num_filters = 64;
+    private int frame_num;
 
     private int nfft;
+    private double[] win;
 
 
     static {
@@ -41,7 +45,7 @@ public class GammaTone extends FeatureExtraction {
         nfft = (int)Math.pow(2, (int)Math.ceil(Math.log((int)(frame_length )) / Math.log(2)));
 
         //Filters factors calculation
-        filters = GammaToneFilters(nfft,sample_rate,64,filter_width,filter_min_frequency,filter_max_frequency);
+        filters = GammaToneFilters(nfft,sample_rate,num_filters,filter_width,filter_min_frequency,filter_max_frequency);
 
         // Factors of rfft
         factors = new float[4*nfft+15];
@@ -55,31 +59,47 @@ public class GammaTone extends FeatureExtraction {
         }
         for(int i = 0; i < ifc_dim; i++)
             ifac[i] = (int)res[dim+i];
+
+        //Hamming window calculation
+        hamming_win();
     }
 
-    public GammaTone(int n){
-        factors = new float[4*n+15];
-        ifac = new int[n+15];
-        float[] res = FFTFactors(n);
-        int dim = 4*n+15;
-        int ifc_dim = n + 15;
-        for(int i = 0; i < dim; i++)
-        {
-            factors[i] = res[i];
-        }
-        for(int i = 0; i < ifc_dim; i++)
-            ifac[i] = (int)res[dim+i];
-    }
+//    public GammaTone(int n){
+//        factors = new float[4*n+15];
+//        ifac = new int[n+15];
+//        float[] res = FFTFactors(n);
+//        int dim = 4*n+15;
+//        int ifc_dim = n + 15;
+//        for(int i = 0; i < dim; i++)
+//        {
+//            factors[i] = res[i];
+//        }
+//        for(int i = 0; i < ifc_dim; i++)
+//            ifac[i] = (int)res[dim+i];
+//
+//    }
 
     @Override
     public void SetData(short[] data, long[] dim) {
         raw_data = data;
-        output_dim = dim;
+        frame_num = 1+(int)(Math.floor((data.length-frame_length)/frame_interval));
+        output_dim = new long[]{frame_num,num_filters};
     }
 
     @Override
     public float[] GetFeature() {
-        return GammaToneFeature(raw_data, factors, ifac, frame_length,frame_interval, filters);
+        return GammaToneFeature(raw_data, factors, ifac, frame_length,frame_interval, filters,win);
+    }
+
+    private void hamming_win(){
+        int hamming_len = frame_length;
+        win= new double[hamming_len];
+
+        for( int i=0; i<hamming_len; ++i )
+        {
+            win[i] =(0.54 - 0.46 * Math.cos((2.0*3.141592653589793*i/(hamming_len-1.0f))));
+        }
+
     }
 
     @Override
@@ -87,7 +107,7 @@ public class GammaTone extends FeatureExtraction {
         return new long[0];
     }
 
-    private native float[] GammaToneFeature(short[] data, float[] factors, int[] ifac, int frame_length, int frame_interval, float[] filters);
+    private native float[] GammaToneFeature(short[] data, float[] factors, int[] ifac, int frame_length, int frame_interval, float[] filters, double[] win);
     private native float[] FFTFactors(int n);
     private native float[] GammaToneFilters(int nfft, int sample_rate, int num_features, float width, int min_frequency, int max_frequency);
 

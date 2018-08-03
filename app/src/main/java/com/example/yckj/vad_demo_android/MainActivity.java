@@ -53,35 +53,30 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        float[] mult_res = stringFromJNI();
-
-        GammaTone gt=new GammaTone();
+        GammaTone gt = new GammaTone();
         gt.initialize();
 
-        short[] a = new short[400];
-        for (int i = 0; i < 400;i++){
-            a[i] = (short)i;
-        }
-        long[] dim = new long[16];
-        gt.SetData(a, dim);
-        float[] res = gt.GetFeature();
-        long startime, endtime;
-        int repeat_time = 10;
-        int i;
-        long[] times = new long[repeat_time];
+        float[] res = {1};
 
-        for(i = 0 ;i < repeat_time ;i++) {
-            startime = System.nanoTime();
-            res = gt.GetFeature();
-            endtime = System.nanoTime();
-            startime = startime / 1000;
-            endtime = endtime / 1000;
-            times[i] = endtime-startime;
-            Log.d("MainActivity", "time is "+Long.toString(times[i]));
-        }
 
-        String TAG = "MainActivity";
-        Log.d("MainActivity", "Done");
+        int repeat_time = 1000;
+        int time_len = 400;
+        short[] test_data = new short[time_len];
+        for (int i = 0; i < time_len;i++)
+            test_data[i] = (short)i;
+//        long start = System.currentTimeMillis();
+//        float iii = 0;
+//        for(int i = 0; i < repeat_time;i++) {
+        gt.SetData(test_data, null);
+        res = gt.GetFeature();
+
+//        }
+//        long end = System.currentTimeMillis();
+
+
+
+        Log.d("MainAcivity", Float.toString((end-start)/(float)repeat_time));
+        Log.d("MainAcivity", Float.toString(res[0]));
 
         //Log.d(TAG, "Time is "+Float.toString((float)(endtime-startime)/repeat_time));
 

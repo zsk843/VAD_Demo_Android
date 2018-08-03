@@ -30,7 +30,6 @@ public class VADModel {
         float[] features = null;
         long[] feature_dim;
         if (extarctor == null){
-//            features= data;
             feature_dim = dim;
         }
         else{
