@@ -20,19 +20,34 @@
 
     <TextView
         android:id="@+id/res_text_view"
-        android:layout_width="117dp"
+        android:layout_width="238dp"
         android:layout_height="51dp"
         android:layout_marginBottom="218dp"
-        android:layout_marginEnd="164dp"
-        android:layout_marginStart="162dp"
-        android:layout_marginTop="241dp"
+        android:layout_marginEnd="80dp"
+        android:layout_marginStart="80dp"
+        android:layout_marginTop="100dp"
+        android:gravity="center"
         android:text="未激活"
         android:textAppearance="@style/TextAppearance.AppCompat.Title"
         android:textSize="36sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.474"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textView"
-        app:layout_constraintVertical_bias="0.51" />
+        app:layout_constraintVertical_bias="0.136" />
+
+    <Button
+        android:id="@+id/act_btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="148dp"
+        android:layout_marginStart="148dp"
+        android:layout_marginTop="208dp"
+        android:onClick="on_act"
+        android:text="开始激活"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/res_text_view" />
 
 </android.support.constraint.ConstraintLayout>

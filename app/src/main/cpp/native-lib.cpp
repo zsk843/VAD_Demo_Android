@@ -50,7 +50,7 @@ extern "C"
 JNIEXPORT jfloatArray JNICALL
 Java_com_example_yckj_vad_1demo_1android_GammaTone_GammaToneFeature(JNIEnv *env, jobject instance,
                                                                     jshortArray data_,
-                                                                    jfloatArray factors_, jintArray ifac_, jint frame_length, jint frame_interval, jfloatArray filters_, jdoubleArray win_) {
+                                                                    jfloatArray factors_, jintArray ifac_, jint frame_length, jint frame_interval, jfloatArray filters_, jdoubleArray win_,jfloatArray mean_, jfloatArray std_) {
 //    int start = clock();
     float g_floor = 0.00000001;
     float pre_emp = 0.97;
@@ -115,11 +115,8 @@ Java_com_example_yckj_vad_1demo_1android_GammaTone_GammaToneFeature(JNIEnv *env,
     int curr_pos;
 
     int inner_j;
-    float mean[num_filters];
-    float std[num_filters];
-
-    memset(mean,0,sizeof(float)*num_filters);
-    memset(std,0, sizeof(float)*num_filters);
+    float* mean = (*env).GetFloatArrayElements(mean_,NULL);
+    float* std = (*env).GetFloatArrayElements(std_,NULL);
 
     for(int i = 0; i < num_filters;i++)
     {
@@ -127,29 +124,13 @@ Java_com_example_yckj_vad_1demo_1android_GammaTone_GammaToneFeature(JNIEnv *env,
             curr_pos = inner_j*num_filters+i;
             if (dot_res[curr_pos] < g_floor)
                 dot_res[curr_pos] = g_floor;
-            dot_res[curr_pos] = (float) pow(dot_res[curr_pos], 1.0 / 3);
-            mean[i] += dot_res[curr_pos];
-        }
-        mean[i] = mean[i]/(float)frame_num;
-
-        for(inner_j = 0; inner_j < frame_num; inner_j++) {
-            curr_pos = inner_j*num_filters+i;
-            std[i] += pow(mean[i] -dot_res[curr_pos],2);
-        }
-        std[i] = sqrt(std[i]/(float)frame_num);
-
-        for(inner_j = 0; inner_j < frame_num; inner_j++) {
-            curr_pos = inner_j*num_filters+i;
-            dot_res[curr_pos] = (dot_res[curr_pos]-mean[i])/std[i];
+            dot_res[curr_pos] = (float)(pow(dot_res[curr_pos], 1.0 / 3)-mean[i])/std[i];
         }
     }
 
     jfloatArray final_res = (*env).NewFloatArray(frame_num*num_filters);
     (*env).SetFloatArrayRegion(final_res, 0, frame_num*num_filters,dot_res);
 
-//    int end = clock();
-//    double dur = (double)(end-start)/CLOCKS_PER_SEC*1000;
-//    cout << dur;
     return final_res;
 }
 

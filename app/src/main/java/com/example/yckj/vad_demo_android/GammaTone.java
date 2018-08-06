@@ -27,6 +27,8 @@ public class GammaTone extends FeatureExtraction {
 
     private int nfft;
     private double[] win;
+    public float[] mean;
+    public float[] std;
 
 
     static {
@@ -34,9 +36,7 @@ public class GammaTone extends FeatureExtraction {
     }
 
     public GammaTone(){
-//        nfft = (int)Math.pow(2, (int)Math.ceil(Math.log((int)(frame_length * sample_rate)) / Math.log(2)));
-//        frame_length = (int)(time_length*sample_rate);
-//        frame_length = (int)(time_interval*sample_rate);
+
     }
 
     public void initialize(){
@@ -63,22 +63,14 @@ public class GammaTone extends FeatureExtraction {
 
         //Hamming window calculation
         hamming_win();
+        mean = new float[num_filters];
+        std = new float[num_filters];
+        for(int i = 0; i < num_filters;i++)
+        {
+            mean[i] = 0;
+            std[i] = 1;
+        }
     }
-
-//    public GammaTone(int n){
-//        factors = new float[4*n+15];
-//        ifac = new int[n+15];
-//        float[] res = FFTFactors(n);
-//        int dim = 4*n+15;
-//        int ifc_dim = n + 15;
-//        for(int i = 0; i < dim; i++)
-//        {
-//            factors[i] = res[i];
-//        }
-//        for(int i = 0; i < ifc_dim; i++)
-//            ifac[i] = (int)res[dim+i];
-//
-//    }
 
     @Override
     public synchronized void SetData(short[] data, long[] dim) {
@@ -95,7 +87,7 @@ public class GammaTone extends FeatureExtraction {
     public synchronized float[] GetFeature() {
         float[] tmp = null;
         try{
-            tmp = GammaToneFeature(raw_data, factors, ifac, frame_length,frame_interval, filters,win);
+            tmp = GammaToneFeature(raw_data, factors, ifac, frame_length,frame_interval, filters,win,mean,std);
         }catch (Exception e)
         {
             e.printStackTrace();
@@ -119,7 +111,7 @@ public class GammaTone extends FeatureExtraction {
         return output_dim;
     }
 
-    private native float[] GammaToneFeature(short[] data, float[] factors, int[] ifac, int frame_length, int frame_interval, float[] filters, double[] win);
+    private native float[] GammaToneFeature(short[] data, float[] factors, int[] ifac, int frame_length, int frame_interval, float[] filters, double[] win, float[]mean,float[]std);
     private native float[] FFTFactors(int n);
     private native float[] GammaToneFilters(int nfft, int sample_rate, int num_features, float width, int min_frequency, int max_frequency);
 

@@ -9,12 +9,14 @@ import android.os.Build;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 
 import org.tensorflow.contrib.android.TensorFlowInferenceInterface;
 
 
-
+import java.util.Arrays;
 import java.util.concurrent.locks.ReentrantLock;
 
 
@@ -47,30 +49,29 @@ public class MainActivity extends AppCompatActivity {
     private GammaTone gt;
     private float sum;
     private float[] mean;
-    private double[] std;
+    private float[] std;
+    private Button btn;
+    private int ACT_LEN = 10;
+    private int CURR_LEN=0;
+    private float[] act_tem;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
-
-//        gt = new GammaTone();
-//        gt.initialize();
-//        inferenceInterface = new TensorFlowInferenceInterface(getAssets(), MODEL_FILENAME);
-
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.activity_main);
 
         textView = findViewById(R.id.res_text_view);
+        btn = findViewById(R.id.act_btn);
 
         gt = new GammaTone();
         gt.initialize();
         inferenceInterface = new TensorFlowInferenceInterface(getAssets(), MODEL_FILENAME);
 
-//        requestMicrophonePermission();
-        startRecording();
-        //startRecognition();
+       requestMicrophonePermission();
+        // startRecording();
+        // startRecognition();
 
     }
 
@@ -79,6 +80,27 @@ public class MainActivity extends AppCompatActivity {
             requestPermissions(
                     new String[]{android.Manifest.permission.RECORD_AUDIO}, REQUEST_RECORD_AUDIO);
         }
+    }
+
+    public void on_act(View view){
+        mean = new float[64];
+        std = new float[64];
+        for(int i = 0; i < 64;i++)
+        {
+            mean[i] = 0;
+            std[i] = 1;
+        }
+        act_tem = new float[300*64];
+        runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        // If we do have a new command, highlight the right list entry.
+                        textView.setText("正在激活");
+                    }
+                });
+        startRecording();
+        view.setClickable(false);
     }
 
     private void record() {
@@ -102,6 +124,52 @@ public class MainActivity extends AppCompatActivity {
 
         if (record.getState() != AudioRecord.STATE_INITIALIZED) {
             return;
+        }
+
+        short[] act_buffer = new short[48240];
+        short[] act_buffer_zero = new short[400];
+        record.startRecording();
+        record.read(act_buffer_zero,0,act_buffer_zero.length);
+        record.read(act_buffer,0,act_buffer.length);
+        record.stop();
+
+        for(int buff_i = 0; buff_i < 10; buff_i++){
+            short[] act_tmp_buffer = new short[5040];
+            for(int i = 0;i < 5040;i++)
+                act_tmp_buffer[i] = act_buffer[i+(160*30*buff_i)];
+
+            float[] res;
+            gt.SetData(act_tmp_buffer,null);
+            res = gt.GetFeature();
+
+            for(int i = 0; i < res.length;i++)
+                act_tem[64*30*buff_i+i] = res[i];
+        }
+
+
+        for (int j = 0; j < 64; j++) {
+            for (int k = 0; k < 300; k++) {
+                mean[j] += act_tem[k * 64 + j];
+            }
+            mean[j] = mean[j] / 300;
+
+            for (int k = 0; k < 300; k++) {
+                std[j] += Math.pow(act_tem[k * 64 + j] - mean[j], 2);
+            }
+            std[j] = (float) Math.sqrt(std[j] / 300);
+
+            gt.mean = Arrays.copyOf(mean, 64);
+            gt.std = Arrays.copyOf(std, 64);
+
+
+            runOnUiThread(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            // If we do have a new command, highlight the right list entry.
+                            textView.setText(Float.toString(1.0f));
+                        }
+                    });
         }
         record.startRecording();
 
@@ -139,7 +207,6 @@ public class MainActivity extends AppCompatActivity {
 
             for (int i = 0; i < RECORDING_LENGTH; ++i) {
                 shortInputBuffer[i] = inputBuffer[i];
-
             }
 
             float[] res = {1};
@@ -151,30 +218,46 @@ public class MainActivity extends AppCompatActivity {
             {
                 e.printStackTrace();
             }
-            inferenceInterface.feed(INPUT_DATA_NAME, res, gt.GetDim());
-            inferenceInterface.feed("keep_prob", new float[]{1.0f}, 1);
-            inferenceInterface.run(outputScoresNames);
-            float[] label = new float[(int) (2 * (gt.GetDim()[0] - 10))];
-            inferenceInterface.fetch(outputScoresNames[0], label);
 
-            float sum_1 = 0;
-            String output = "";
-            for (int i = 0; i < label.length/2; i++) {
-                if (label[i * 2] < label[i * 2 + 1]) {
-                    sum_1 += 1;
-                    output += "| 1 |";
+
+                inferenceInterface.feed(INPUT_DATA_NAME, res, gt.GetDim());
+                inferenceInterface.feed("keep_prob", new float[]{1.0f}, 1);
+                inferenceInterface.run(outputScoresNames);
+                float[] label = new float[(int) (2 * (gt.GetDim()[0] - 10))];
+                inferenceInterface.fetch(outputScoresNames[0], label);
+
+                float sum_1 = 0;
+                String output = "";
+                for (int i = 0; i < label.length / 2; i++) {
+                    if (label[i * 2] < label[i * 2 + 1]) {
+                        sum_1 += 1;
+                        output += "| 1 |";
+                    } else
+                        output += "| 0 |";
                 }
+                Log.d("MainActivity", output);
+
+                if (sum_1 > label.length / 4)
+                    sum = 1;
                 else
-                    output += "| 0 |";
-//                output += "| "+Float.toString(label[i*2])+" "+Float.toString(label[i*2+1])+" |";
+                    sum = 0;
+                runOnUiThread(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                // If we do have a new command, highlight the right list entry.
+                                textView.setText(Float.toString(sum));
+                            }
+                        });
+
+                try {
+                    // We don't need to run too frequently, so snooze for a bit.
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    // Ignore
+                }
 
             }
-            Log.d("MainActivity", output);
-
-            if (sum_1 > label.length / 4)
-                sum = 1;
-            else
-                sum = 0;
 
 //            long v = 0;
 //            for (int i = 0; i < shortInputBuffer.length; i++) {
@@ -191,24 +274,10 @@ public class MainActivity extends AppCompatActivity {
 //            }
 
 
-            runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            // If we do have a new command, highlight the right list entry.
-                            textView.setText(Float.toString(sum));
-                        }
-                    });
-
-            try {
-                // We don't need to run too frequently, so snooze for a bit.
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                // Ignore
-            }
 
 
-        }
+
+
 
         record.stop();
         record.release();
@@ -236,8 +305,8 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == REQUEST_RECORD_AUDIO
                 && grantResults.length > 0
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            startRecording();
-            startRecognition();
+//            startRecording();
+//            startRecognition();
         }
     }
 
