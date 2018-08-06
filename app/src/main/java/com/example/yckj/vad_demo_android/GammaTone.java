@@ -1,9 +1,6 @@
 package com.example.yckj.vad_demo_android;
 
-import java.math.*;
-import java.util.Arrays;
-
-import static java.lang.Math.cos;
+import java.util.LinkedList;
 
 public class GammaTone extends FeatureExtraction {
 
@@ -29,6 +26,11 @@ public class GammaTone extends FeatureExtraction {
     private double[] win;
     public float[] mean;
     public float[] std;
+    public LinkedList<Float[]> history;
+    public int reset_count = 0;
+    public int size_count = 0;
+    private boolean full_flag = false;
+    private int quque_size;
 
 
     static {
@@ -44,6 +46,8 @@ public class GammaTone extends FeatureExtraction {
         frame_length = (int)(time_length*sample_rate);
         frame_interval = (int)(time_interval*sample_rate);
         nfft = (int)Math.pow(2, (int)Math.ceil(Math.log((int)(frame_length )) / Math.log(2)));
+        history = new LinkedList<>();
+        quque_size = 900*num_filters;
 
         //Filters factors calculation
         filters = GammaToneFilters(nfft,sample_rate,num_filters,filter_width,filter_min_frequency,filter_max_frequency);
@@ -87,7 +91,36 @@ public class GammaTone extends FeatureExtraction {
     public synchronized float[] GetFeature() {
         float[] tmp = null;
         try{
-            tmp = GammaToneFeature(raw_data, factors, ifac, frame_length,frame_interval, filters,win,mean,std);
+            tmp = GammaToneFeature(raw_data, factors, ifac, frame_length,frame_interval, filters,win);
+            float[] tmp_mean = new float[num_filters];
+            float[] tmp_var = new float[num_filters];
+
+            for (int j = 0; j < 64; j++) {
+                for (int k = 0; k < output_dim[0]; k++) {
+                    tmp_mean[j] += tmp[k * num_filters + j];
+                }
+                tmp_mean[j] =  tmp_mean[j] / output_dim[0];
+
+                for (int k = 0; k < 300; k++) {
+                    tmp_var[j] += Math.pow(tmp[k * num_filters + j] -  tmp_mean[j], 2);
+                }
+                tmp_var[j] = tmp_var[j] / output_dim[0];
+            }
+
+            for(int i =0; i <num_filters;i++) {
+                mean[i] = (tmp_mean[i]+ mean[i])/2;
+                std[i] = (float)Math.sqrt((std[i]*std[i]+tmp_var[i])/2);
+            }
+
+            for(int i = 0; i < num_filters;i++)
+            {
+                for(int j = 0; j < output_dim[0];j++)
+                {
+                    tmp[j*num_filters+i] = (tmp[j*num_filters+i]-mean[i])/std[i];
+                }
+            }
+
+
         }catch (Exception e)
         {
             e.printStackTrace();
@@ -111,7 +144,7 @@ public class GammaTone extends FeatureExtraction {
         return output_dim;
     }
 
-    private native float[] GammaToneFeature(short[] data, float[] factors, int[] ifac, int frame_length, int frame_interval, float[] filters, double[] win, float[]mean,float[]std);
+    private native float[] GammaToneFeature(short[] data, float[] factors, int[] ifac, int frame_length, int frame_interval, float[] filters, double[] win);
     private native float[] FFTFactors(int n);
     private native float[] GammaToneFilters(int nfft, int sample_rate, int num_features, float width, int min_frequency, int max_frequency);
 

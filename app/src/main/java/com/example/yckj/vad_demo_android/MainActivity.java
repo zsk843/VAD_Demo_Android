@@ -1,11 +1,15 @@
 package com.example.yckj.vad_demo_android;
 
 
+import android.animation.AnimatorInflater;
+import android.animation.AnimatorSet;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Build;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -47,13 +51,13 @@ public class MainActivity extends AppCompatActivity {
     private String[] outputScoresNames = {"output/Softmax"};
     private TextView textView;
     private GammaTone gt;
-    private float sum;
+    private int sum;
     private float[] mean;
     private float[] std;
+    private int NUM_FILTERS = 64;
     private Button btn;
-    private int ACT_LEN = 10;
-    private int CURR_LEN=0;
-    private float[] act_tem;
+    private FloatingActionButton fab;
+    private int[] red_color = {0xffff0000};
 
 
     @Override
@@ -64,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
 
         textView = findViewById(R.id.res_text_view);
         btn = findViewById(R.id.act_btn);
+        fab = findViewById(R.id.led);
 
         gt = new GammaTone();
         gt.initialize();
@@ -90,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
             mean[i] = 0;
             std[i] = 1;
         }
-        act_tem = new float[300*64];
+
         runOnUiThread(
                 new Runnable() {
                     @Override
@@ -128,6 +133,7 @@ public class MainActivity extends AppCompatActivity {
 
         short[] act_buffer = new short[48240];
         short[] act_buffer_zero = new short[400];
+        float[] act_tem = new float[NUM_FILTERS*300];
         record.startRecording();
         record.read(act_buffer_zero,0,act_buffer_zero.length);
         record.read(act_buffer,0,act_buffer.length);
@@ -157,20 +163,17 @@ public class MainActivity extends AppCompatActivity {
                 std[j] += Math.pow(act_tem[k * 64 + j] - mean[j], 2);
             }
             std[j] = (float) Math.sqrt(std[j] / 300);
-
-            gt.mean = Arrays.copyOf(mean, 64);
-            gt.std = Arrays.copyOf(std, 64);
-
-
-            runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            // If we do have a new command, highlight the right list entry.
-                            textView.setText(Float.toString(1.0f));
-                        }
-                    });
         }
+        gt.mean = Arrays.copyOf(mean, 64);
+        gt.std = Arrays.copyOf(std, 64);
+        runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        // If we do have a new command, highlight the right list entry.
+                        textView.setText("已激活");
+                    }
+                });
         record.startRecording();
 
         // Loop, gathering audio data and copying it to a round-robin buffer.
@@ -245,40 +248,14 @@ public class MainActivity extends AppCompatActivity {
                         new Runnable() {
                             @Override
                             public void run() {
-                                // If we do have a new command, highlight the right list entry.
-                                textView.setText(Float.toString(sum));
+//                                textView.setText(Float.toString(sum));
+                                if(sum == 1)
+                                    fab.setBackgroundTintList(ColorStateList.valueOf(0xffff0000));
+                                else
+                                    fab.setBackgroundTintList(ColorStateList.valueOf(0x303f9f));
                             }
                         });
-
-                try {
-                    // We don't need to run too frequently, so snooze for a bit.
-                    Thread.sleep(50);
-                } catch (InterruptedException e) {
-                    // Ignore
-                }
-
             }
-
-//            long v = 0;
-//            for (int i = 0; i < shortInputBuffer.length; i++) {
-//                v += shortInputBuffer[i] * shortInputBuffer[i];
-//            }
-//
-//            float mean = v / (float) shortInputBuffer.length;
-//            float volume = (float)(10 * Math.log10(mean));
-//            if(volume> 60){
-//                sum = 1.0f;
-//            }
-//            else {
-//                sum =0.0f;
-//            }
-
-
-
-
-
-
-
         record.stop();
         record.release();
     }
@@ -305,136 +282,7 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == REQUEST_RECORD_AUDIO
                 && grantResults.length > 0
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-//            startRecording();
-//            startRecognition();
         }
     }
-
-    public synchronized void startRecognition() {
-        if (recognitionThread != null) {
-            return;
-        }
-
-        gt = new GammaTone();
-        gt.initialize();
-        inferenceInterface = new TensorFlowInferenceInterface(getAssets(), MODEL_FILENAME);
-        try {
-            Thread.sleep(2000);
-        }catch(Exception e)
-        {
-            e.printStackTrace();
-        }
-
-        shouldContinueRecognition = true;
-        recognitionThread =
-                new Thread(
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                recognize();
-                            }
-                        });
-        recognitionThread.start();
-    }
-
-    private void recognize() {
-
-        short[] inputBuffer = new short[RECORDING_LENGTH];
-        short[] shortInputBuffer = new short[RECORDING_LENGTH];
-
-        while (shouldContinueRecognition) {
-            // The recording thread places data in this round-robin buffer, so lock to
-            // make sure there's no writing happening and then copy it to our own
-            // local version.
-
-
-            recordingBufferLock.lock();
-            try {
-                int maxLength = recordingBuffer.length;
-                int firstCopyLength = maxLength - recordingOffset;
-                int secondCopyLength = recordingOffset;
-                System.arraycopy(recordingBuffer, recordingOffset, inputBuffer, 0, firstCopyLength);
-                System.arraycopy(recordingBuffer, 0, inputBuffer, firstCopyLength, secondCopyLength);
-            } finally {
-                recordingBufferLock.unlock();
-            }
-
-            // We need to feed in float values between -1.0f and 1.0f, so divide the
-            // signed 16-bit inputs.
-
-            for (int i = 0; i < RECORDING_LENGTH; ++i) {
-                shortInputBuffer[i] = inputBuffer[i];
-
-            }
-
-            float[] res = {1};
-
-            gt.SetData(shortInputBuffer, null);
-            try {
-                res = gt.GetFeature();
-            }catch (Exception e)
-            {
-                e.printStackTrace();
-            }
-            inferenceInterface.feed(INPUT_DATA_NAME, res, gt.GetDim());
-            inferenceInterface.feed("keep_prob", new float[]{1.0f}, 1);
-            inferenceInterface.run(outputScoresNames);
-            float[] label = new float[(int) (2 * (gt.GetDim()[0] - 10))];
-            inferenceInterface.fetch(outputScoresNames[0], label);
-
-            float sum_1 = 0;
-            String output = "";
-            for (int i = 0; i < label.length/2; i++) {
-                if (label[i * 2] < label[i * 2 + 1]) {
-                    sum_1 += 1;
-                    output += "| 1 |";
-                }
-                else
-                    output += "| 0 |";
-//                output += "| "+Float.toString(label[i*2])+" "+Float.toString(label[i*2+1])+" |";
-
-            }
-            Log.d("MainActivity", output);
-
-            if (sum_1 > label.length / 4)
-                sum = 1;
-            else
-                sum = 0;
-
-//            long v = 0;
-//            for (int i = 0; i < shortInputBuffer.length; i++) {
-//                v += shortInputBuffer[i] * shortInputBuffer[i];
-//            }
-//
-//            float mean = v / (float) shortInputBuffer.length;
-//            float volume = (float)(10 * Math.log10(mean));
-//            if(volume> 60){
-//                sum = 1.0f;
-//            }
-//            else {
-//                sum =0.0f;
-//            }
-
-
-            runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            // If we do have a new command, highlight the right list entry.
-                            textView.setText(Float.toString(sum));
-                        }
-                    });
-
-            try {
-                // We don't need to run too frequently, so snooze for a bit.
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                // Ignore
-            }
-        }
-
-    }
-
-
 
 }

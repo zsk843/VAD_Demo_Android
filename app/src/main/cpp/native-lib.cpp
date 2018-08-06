@@ -50,7 +50,7 @@ extern "C"
 JNIEXPORT jfloatArray JNICALL
 Java_com_example_yckj_vad_1demo_1android_GammaTone_GammaToneFeature(JNIEnv *env, jobject instance,
                                                                     jshortArray data_,
-                                                                    jfloatArray factors_, jintArray ifac_, jint frame_length, jint frame_interval, jfloatArray filters_, jdoubleArray win_,jfloatArray mean_, jfloatArray std_) {
+                                                                    jfloatArray factors_, jintArray ifac_, jint frame_length, jint frame_interval, jfloatArray filters_, jdoubleArray win_) {
 //    int start = clock();
     float g_floor = 0.00000001;
     float pre_emp = 0.97;
@@ -81,7 +81,7 @@ Java_com_example_yckj_vad_1demo_1android_GammaTone_GammaToneFeature(JNIEnv *env,
 //    }
 
     int frame_num = 1+(int)(floor((samples_len-frame_length)/frame_interval));
-    float* tmp_data = new float[nfft];
+    float tmp_data [nfft];
     int j,k;
     int gt_len = nfft/2;
     float real,img;
@@ -115,8 +115,8 @@ Java_com_example_yckj_vad_1demo_1android_GammaTone_GammaToneFeature(JNIEnv *env,
     int curr_pos;
 
     int inner_j;
-    float* mean = (*env).GetFloatArrayElements(mean_,NULL);
-    float* std = (*env).GetFloatArrayElements(std_,NULL);
+//    float* mean = (*env).GetFloatArrayElements(mean_,NULL);
+//    float* std = (*env).GetFloatArrayElements(std_,NULL);
 
     for(int i = 0; i < num_filters;i++)
     {
@@ -124,7 +124,8 @@ Java_com_example_yckj_vad_1demo_1android_GammaTone_GammaToneFeature(JNIEnv *env,
             curr_pos = inner_j*num_filters+i;
             if (dot_res[curr_pos] < g_floor)
                 dot_res[curr_pos] = g_floor;
-            dot_res[curr_pos] = (float)(pow(dot_res[curr_pos], 1.0 / 3)-mean[i])/std[i];
+//            dot_res[curr_pos] = (float)(pow(dot_res[curr_pos], 1.0 / 3)-mean[i])/std[i];
+            dot_res[curr_pos] = (float)pow(dot_res[curr_pos], 1.0 / 3);
         }
     }
 
