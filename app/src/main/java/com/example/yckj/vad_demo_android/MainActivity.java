@@ -131,89 +131,85 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        short[] act_buffer = new short[48240];
-        short[] act_buffer_zero = new short[400];
-        float[] act_tem = new float[NUM_FILTERS*300];
-        record.startRecording();
-        record.read(act_buffer_zero,0,act_buffer_zero.length);
-        record.read(act_buffer,0,act_buffer.length);
-        record.stop();
-
-        for(int buff_i = 0; buff_i < 10; buff_i++){
-            short[] act_tmp_buffer = new short[5040];
-            for(int i = 0;i < 5040;i++)
-                act_tmp_buffer[i] = act_buffer[i+(160*30*buff_i)];
-
-            float[] res;
-            gt.SetData(act_tmp_buffer,null);
-            res = gt.GetFeature();
-
-            for(int i = 0; i < res.length;i++)
-                act_tem[64*30*buff_i+i] = res[i];
-        }
-
-
-        for (int j = 0; j < 64; j++) {
-            for (int k = 0; k < 300; k++) {
-                mean[j] += act_tem[k * 64 + j];
-            }
-            mean[j] = mean[j] / 300;
-
-            for (int k = 0; k < 300; k++) {
-                std[j] += Math.pow(act_tem[k * 64 + j] - mean[j], 2);
-            }
-            std[j] = (float) Math.sqrt(std[j] / 300);
-        }
-        gt.mean = Arrays.copyOf(mean, 64);
-        gt.std = Arrays.copyOf(std, 64);
+//        short[] act_buffer = new short[5040];
+//        short[] act_buffer_zero = new short[400];
+//        float[] act_tem = new float[NUM_FILTERS*30];
+//        record.startRecording();
+//        record.read(act_buffer_zero,0,act_buffer_zero.length);
+//        record.read(act_buffer,0,act_buffer.length);
+//        record.stop();
+//
+//
+//        float[] res;
+//        gt.SetData(act_buffer,null);
+//        res = gt.GetFeature();
+//
+//        for(int i = 0; i < res.length;i++)
+//            act_tem[i] = res[i];
+//
+//        for (int j = 0; j < 64; j++) {
+//            for (int k = 0; k < 30; k++) {
+//                mean[j] += act_tem[k * 64 + j];
+//            }
+//            mean[j] = mean[j] / 30;
+//
+//            for (int k = 0; k < 30; k++) {
+//                std[j] += Math.pow(act_tem[k * 64 + j] - mean[j], 2);
+//            }
+//            std[j] = (float) Math.sqrt(std[j] / 30);
+//        }
+//        gt.mean = Arrays.copyOf(mean, 64);
+//        gt.std = Arrays.copyOf(std, 64);
+//        gt.size_count = 30;
         runOnUiThread(
                 new Runnable() {
                     @Override
                     public void run() {
                         // If we do have a new command, highlight the right list entry.
-                        textView.setText("已激活");
+                        textView.setText("开始录音");
                     }
                 });
-        record.startRecording();
 
+        float[] res = {1};
+        short[] shortInputBuffer = new short[5040];
+        record.startRecording();
         // Loop, gathering audio data and copying it to a round-robin buffer.
         while (shouldContinue) {
-            int numberRead = record.read(audioBuffer, 0, audioBuffer.length);
-            int maxLength = recordingBuffer.length;
-            int newRecordingOffset = recordingOffset + numberRead;
-            int secondCopyLength = Math.max(0, newRecordingOffset - maxLength);
-            int firstCopyLength = numberRead - secondCopyLength;
+//            int numberRead = record.read(audioBuffer, 0, audioBuffer.length);
+//            int maxLength = recordingBuffer.length;
+//            int newRecordingOffset = recordingOffset + numberRead;
+//            int secondCopyLength = Math.max(0, newRecordingOffset - maxLength);
+//            int firstCopyLength = numberRead - secondCopyLength;
+//
+//            recordingBufferLock.lock();
+//            try {
+//                System.arraycopy(audioBuffer, 0, recordingBuffer, recordingOffset, firstCopyLength);
+//                System.arraycopy(audioBuffer, firstCopyLength, recordingBuffer, 0, secondCopyLength);
+//                recordingOffset = newRecordingOffset % maxLength;
+//            } finally {
+//                recordingBufferLock.unlock();
+//            }
+//
+//
+//            short[] inputBuffer = new short[RECORDING_LENGTH];
+//            short[] shortInputBuffer = new short[RECORDING_LENGTH];
+//
+//            recordingBufferLock.lock();
+//            try {
+//                maxLength = recordingBuffer.length;
+//                firstCopyLength = maxLength - recordingOffset;
+//                secondCopyLength = recordingOffset;
+//                System.arraycopy(recordingBuffer, recordingOffset, inputBuffer, 0, firstCopyLength);
+//                System.arraycopy(recordingBuffer, 0, inputBuffer, firstCopyLength, secondCopyLength);
+//            } finally {
+//                recordingBufferLock.unlock();
+//            }
+//
+//            for (int i = 0; i < RECORDING_LENGTH; ++i) {
+//                shortInputBuffer[i] = inputBuffer[i];
+//            }
 
-            recordingBufferLock.lock();
-            try {
-                System.arraycopy(audioBuffer, 0, recordingBuffer, recordingOffset, firstCopyLength);
-                System.arraycopy(audioBuffer, firstCopyLength, recordingBuffer, 0, secondCopyLength);
-                recordingOffset = newRecordingOffset % maxLength;
-            } finally {
-                recordingBufferLock.unlock();
-            }
-
-
-            short[] inputBuffer = new short[RECORDING_LENGTH];
-            short[] shortInputBuffer = new short[RECORDING_LENGTH];
-
-            recordingBufferLock.lock();
-            try {
-                maxLength = recordingBuffer.length;
-                firstCopyLength = maxLength - recordingOffset;
-                secondCopyLength = recordingOffset;
-                System.arraycopy(recordingBuffer, recordingOffset, inputBuffer, 0, firstCopyLength);
-                System.arraycopy(recordingBuffer, 0, inputBuffer, firstCopyLength, secondCopyLength);
-            } finally {
-                recordingBufferLock.unlock();
-            }
-
-            for (int i = 0; i < RECORDING_LENGTH; ++i) {
-                shortInputBuffer[i] = inputBuffer[i];
-            }
-
-            float[] res = {1};
-
+            record.read(shortInputBuffer,0,shortInputBuffer.length);
             gt.SetData(shortInputBuffer, null);
             try {
                 res = gt.GetFeature();
@@ -221,6 +217,17 @@ public class MainActivity extends AppCompatActivity {
             {
                 e.printStackTrace();
             }
+            String output1 = "mean: ";
+            String output2 = "std: ";
+            for(int i = 0; i < gt.std.length/8;i++)
+            {
+                output1  = output1+ Float.toString(gt.mean[i])+" ";
+                output2 = output2 + Float.toString(gt.std[i])+" ";
+            }
+
+            Log.d("MainActivity", output1);
+            Log.d("MainActivity", output2);
+
 
 
                 inferenceInterface.feed(INPUT_DATA_NAME, res, gt.GetDim());
@@ -234,11 +241,10 @@ public class MainActivity extends AppCompatActivity {
                 for (int i = 0; i < label.length / 2; i++) {
                     if (label[i * 2] < label[i * 2 + 1]) {
                         sum_1 += 1;
-                        output += "| 1 |";
-                    } else
-                        output += "| 0 |";
+                    }
+
                 }
-                Log.d("MainActivity", output);
+
 
                 if (sum_1 > label.length / 4)
                     sum = 1;

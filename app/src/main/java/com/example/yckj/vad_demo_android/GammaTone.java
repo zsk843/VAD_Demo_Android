@@ -26,11 +26,11 @@ public class GammaTone extends FeatureExtraction {
     private double[] win;
     public float[] mean;
     public float[] std;
-    public LinkedList<Float[]> history;
+    public LinkedList<float[]> history;
     public int reset_count = 0;
     public int size_count = 0;
     private boolean full_flag = false;
-    private int quque_size;
+    private int quque_size = 900;
 
 
     static {
@@ -47,7 +47,6 @@ public class GammaTone extends FeatureExtraction {
         frame_interval = (int)(time_interval*sample_rate);
         nfft = (int)Math.pow(2, (int)Math.ceil(Math.log((int)(frame_length )) / Math.log(2)));
         history = new LinkedList<>();
-        quque_size = 900*num_filters;
 
         //Filters factors calculation
         filters = GammaToneFilters(nfft,sample_rate,num_filters,filter_width,filter_min_frequency,filter_max_frequency);
@@ -94,31 +93,112 @@ public class GammaTone extends FeatureExtraction {
             tmp = GammaToneFeature(raw_data, factors, ifac, frame_length,frame_interval, filters,win);
             float[] tmp_mean = new float[num_filters];
             float[] tmp_var = new float[num_filters];
+            float[] tmp_var2 = new float[num_filters];
 
-            for (int j = 0; j < 64; j++) {
-                for (int k = 0; k < output_dim[0]; k++) {
-                    tmp_mean[j] += tmp[k * num_filters + j];
-                }
-                tmp_mean[j] =  tmp_mean[j] / output_dim[0];
+            if(size_count == 0)
+            {
+                for (int j = 0; j < num_filters; j++) {
+                    mean[j] = 0;
+                    for (int k = 0; k < output_dim[0]; k++) {
+                        mean[j] += tmp[k * num_filters + j];
+                    }
+                    mean[j] = mean[j] / output_dim[0];
 
-                for (int k = 0; k < 300; k++) {
-                    tmp_var[j] += Math.pow(tmp[k * num_filters + j] -  tmp_mean[j], 2);
+                    std[j] = 0;
+                    for (int k = 0; k < output_dim[0]; k++) {
+                        std[j] += Math.pow(tmp[k * num_filters + j] - mean[j], 2);
+                    }
+                    std[j] = (float) Math.sqrt(std[j] / output_dim[0]);
                 }
-                tmp_var[j] = tmp_var[j] / output_dim[0];
+                size_count =(int)output_dim[0];
             }
+            else if(size_count<quque_size)
+            {
+//                history.offer(tmp);
+//                for(int i = 0; i < num_filters; i++)
+//                {
+//                    tmp_mean[i] = mean[i];
+//                    mean[i] = 0;
+//                    for(int j = 0; j < output_dim[0]; j++)
+//                        mean[i] += tmp[j*num_filters+i];
+//                    mean[i] = (mean[i]+ tmp_mean[i]*size_count)/(output_dim[0]+size_count);
+//
+//                    tmp_var[i] = 0;
+//                    for(int j = 0; j<output_dim[0];j++)
+//                        tmp_var[i] += tmp[j*num_filters+i]*tmp[j*num_filters+i];
+//                    std[i] =(float) Math.sqrt(((std[i]*std[i])*size_count+tmp_var[i]-(output_dim[0]+size_count)*mean[i]*mean[i]+size_count*tmp_mean[i]*tmp_mean[i])/(size_count+output_dim[0]));
+//                }
 
-            for(int i =0; i <num_filters;i++) {
-                mean[i] = (tmp_mean[i]+ mean[i])/2;
-                std[i] = (float)Math.sqrt((std[i]*std[i]+tmp_var[i])/2);
+                history.offer(tmp);
+                float[] history_raw = new float[size_count*num_filters];
+                int list_cout = 0;
+                for(float[] seg:history) {
+                    for(int i = 0; i < num_filters;i++)
+                        history_raw[i+list_cout] = seg[i];
+                    list_cout+=seg.length;
+                }
+                int fram_num_his = history_raw.length/num_filters;
+                for(int i = 0; i < num_filters;i++)
+                {
+                    mean[i] = 0;
+                    for(int j = 0; j <fram_num_his;j++)
+                        mean[i]+=history_raw[j*num_filters+i];
+                    mean[i] = mean[i]/fram_num_his;
+
+                    std[i] = 0;
+                    for(int j = 0; j < fram_num_his;j++)
+                        std[i] += (float)Math.pow(history_raw[j*num_filters+i]-mean[i],2);
+                    std[i] =(float) Math.sqrt(std[i]/fram_num_his);
+                }
+
+                size_count += output_dim[0];
+            }else{
+                history.offer(tmp);
+                float[] replaced_tmp = history.poll();
+                float[] history_raw = new float[size_count*num_filters];
+                int list_cout = 0;
+                for(float[] seg:history) {
+                    for(int i = 0; i < num_filters;i++)
+                        history_raw[i+list_cout] = seg[i];
+                    list_cout+=seg.length;
+                }
+
+                int fram_num_his = history_raw.length/num_filters;
+                for(int i = 0; i < num_filters;i++)
+                {
+                    mean[i] = 0;
+                    for(int j = 0; j <fram_num_his;j++)
+                        mean[i]+=history_raw[j*num_filters+i];
+                    mean[i] = mean[i]/fram_num_his;
+
+                    std[i] = 0;
+                    for(int j = 0; j < fram_num_his;j++)
+                        std[i] += (float)Math.pow(history_raw[j*num_filters+i]-mean[i],2);
+                    std[i] =(float) Math.sqrt(std[i]/fram_num_his);
+                }
+//                for(int i = 0; i < num_filters; i++)
+//                {
+//                    tmp_mean[i] = mean[i];
+//                    mean[i] = 0;
+//                    for(int j = 0; j < output_dim[0];j++)
+//                        mean[i] += tmp[j*num_filters+i]-replaced_tmp[j*num_filters+i];
+//                    mean[i] = tmp_mean[i]+mean[i]/size_count;
+//
+//                    tmp_var[i] = 0;
+//                    tmp_var2[i] = 0;
+//
+//                    for(int j = 0; j < output_dim[0]; j++)
+//                    {
+//                        tmp_var[i] += replaced_tmp[j*num_filters+i]*replaced_tmp[j*num_filters];
+//                        tmp_var2[i] += tmp[j*num_filters+i]*tmp[j*num_filters+i];
+//                    }
+//                    std[i] = (float)Math.sqrt((std[i]*std[i]*size_count+size_count*(-tmp_mean[i]*tmp_mean[i]+mean[i]*mean[i])-(-tmp_var[i]+tmp_var2[i]))/size_count);
+//                }
             }
 
             for(int i = 0; i < num_filters;i++)
-            {
-                for(int j = 0; j < output_dim[0];j++)
-                {
+                for(int j =0; j <output_dim[0];j++)
                     tmp[j*num_filters+i] = (tmp[j*num_filters+i]-mean[i])/std[i];
-                }
-            }
 
 
         }catch (Exception e)
