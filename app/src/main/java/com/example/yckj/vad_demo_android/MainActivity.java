@@ -26,10 +26,6 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class MainActivity extends AppCompatActivity {
 
-//    static {
-//        System.loadLibrary("native-lib");
-//    }
-
     private static final int SAMPLE_RATE = 16000;
     private static final int SAMPLE_DURATION_MS = 315;
     private static final int RECORDING_LENGTH = (int) (SAMPLE_RATE * SAMPLE_DURATION_MS / 1000);
@@ -38,13 +34,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_RECORD_AUDIO = 13;
 
     // Working variables.
-    short[] recordingBuffer = new short[RECORDING_LENGTH];
-    int recordingOffset = 0;
     boolean shouldContinue = true;
     private Thread recordingThread;
-    boolean shouldContinueRecognition = true;
-    private Thread recognitionThread;
-    private final ReentrantLock recordingBufferLock = new ReentrantLock();
     private TensorFlowInferenceInterface inferenceInterface;
     private String MODEL_FILENAME = "file:///android_asset/Model.pb";
     private String INPUT_DATA_NAME = "input";
@@ -57,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private int NUM_FILTERS = 64;
     private Button btn;
     private FloatingActionButton fab;
-    private int[] red_color = {0xffff0000};
+
 
 
     @Override
@@ -75,8 +66,6 @@ public class MainActivity extends AppCompatActivity {
         inferenceInterface = new TensorFlowInferenceInterface(getAssets(), MODEL_FILENAME);
 
        requestMicrophonePermission();
-        // startRecording();
-        // startRecognition();
 
     }
 
@@ -217,18 +206,6 @@ public class MainActivity extends AppCompatActivity {
             {
                 e.printStackTrace();
             }
-            String output1 = "mean: ";
-            String output2 = "std: ";
-            for(int i = 0; i < gt.std.length/8;i++)
-            {
-                output1  = output1+ Float.toString(gt.mean[i])+" ";
-                output2 = output2 + Float.toString(gt.std[i])+" ";
-            }
-
-            Log.d("MainActivity", output1);
-            Log.d("MainActivity", output2);
-
-
 
                 inferenceInterface.feed(INPUT_DATA_NAME, res, gt.GetDim());
                 inferenceInterface.feed("keep_prob", new float[]{1.0f}, 1);
@@ -237,7 +214,6 @@ public class MainActivity extends AppCompatActivity {
                 inferenceInterface.fetch(outputScoresNames[0], label);
 
                 float sum_1 = 0;
-                String output = "";
                 for (int i = 0; i < label.length / 2; i++) {
                     if (label[i * 2] < label[i * 2 + 1]) {
                         sum_1 += 1;
@@ -245,11 +221,11 @@ public class MainActivity extends AppCompatActivity {
 
                 }
 
-
                 if (sum_1 > label.length / 4)
                     sum = 1;
                 else
                     sum = 0;
+
                 runOnUiThread(
                         new Runnable() {
                             @Override

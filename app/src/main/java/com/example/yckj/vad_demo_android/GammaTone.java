@@ -1,5 +1,7 @@
 package com.example.yckj.vad_demo_android;
 
+import android.util.Log;
+
 import java.util.LinkedList;
 
 public class GammaTone extends FeatureExtraction {
@@ -27,9 +29,7 @@ public class GammaTone extends FeatureExtraction {
     public float[] mean;
     public float[] std;
     public LinkedList<float[]> history;
-    public int reset_count = 0;
     public int size_count = 0;
-    private boolean full_flag = false;
     private int quque_size = 900;
 
 
@@ -97,31 +97,60 @@ public class GammaTone extends FeatureExtraction {
 
             if(size_count == 0)
             {
-                for (int j = 0; j < num_filters; j++) {
-                    mean[j] = 0;
-                    for (int k = 0; k < output_dim[0]; k++) {
-                        mean[j] += tmp[k * num_filters + j];
-                    }
-                    mean[j] = mean[j] / output_dim[0];
+                history.offer(tmp);
+//                for (int j = 0; j < num_filters; j++) {
+//                    mean[j] = 0;
+//                    for (int k = 0; k < output_dim[0]; k++) {
+//                        mean[j] += tmp[k * num_filters + j];
+//                    }
+//                    mean[j] = mean[j] / output_dim[0];
+//
+//                    std[j] = 0;
+//                    for (int k = 0; k < output_dim[0]; k++) {
+//                        std[j] += Math.pow(tmp[k * num_filters + j] - mean[j], 2);
+//                    }
+//                    std[j] = (float) Math.sqrt(std[j] / output_dim[0]);
+//                }
+//                size_count =(int)output_dim[0];
 
-                    std[j] = 0;
-                    for (int k = 0; k < output_dim[0]; k++) {
-                        std[j] += Math.pow(tmp[k * num_filters + j] - mean[j], 2);
-                    }
-                    std[j] = (float) Math.sqrt(std[j] / output_dim[0]);
+                float[] history_raw = new float[(size_count+(int)output_dim[0])*num_filters];
+                int list_cout = 0;
+                for(float[] seg:history) {
+                    for(int i = 0; i < seg.length;i++)
+                        history_raw[i+list_cout] = seg[i];
+                    list_cout+=seg.length;
                 }
-                size_count =(int)output_dim[0];
+                int fram_num_his = history_raw.length/num_filters;
+                for(int i = 0; i < num_filters;i++)
+                {
+                    mean[i] = 0;
+                    for(int j = 0; j <fram_num_his;j++)
+                        mean[i]+=history_raw[j*num_filters+i];
+                    mean[i] = mean[i]/fram_num_his;
+
+                    std[i] = 0;
+                    for(int j = 0; j < fram_num_his;j++)
+                        std[i] += (float)Math.pow(history_raw[j*num_filters+i]-mean[i],2);
+                    std[i] =(float) Math.sqrt(std[i]/fram_num_his);
+                }
+//                std = test_std;
+//                mean = test_mean;
+
+                size_count += output_dim[0];
             }
             else if(size_count<quque_size)
             {
-//                history.offer(tmp);
+                history.offer(tmp);
+
+////                float[] test_mean = new float[num_filters];
+////                float[] test_std = new float[num_filters];
 //                for(int i = 0; i < num_filters; i++)
 //                {
 //                    tmp_mean[i] = mean[i];
 //                    mean[i] = 0;
 //                    for(int j = 0; j < output_dim[0]; j++)
 //                        mean[i] += tmp[j*num_filters+i];
-//                    mean[i] = (mean[i]+ tmp_mean[i]*size_count)/(output_dim[0]+size_count);
+//                    mean[i] = (mean[i]+ (tmp_mean[i]*size_count))/(output_dim[0]+size_count);
 //
 //                    tmp_var[i] = 0;
 //                    for(int j = 0; j<output_dim[0];j++)
@@ -129,11 +158,12 @@ public class GammaTone extends FeatureExtraction {
 //                    std[i] =(float) Math.sqrt(((std[i]*std[i])*size_count+tmp_var[i]-(output_dim[0]+size_count)*mean[i]*mean[i]+size_count*tmp_mean[i]*tmp_mean[i])/(size_count+output_dim[0]));
 //                }
 
-                history.offer(tmp);
-                float[] history_raw = new float[size_count*num_filters];
+//                history.offer(tmp);
+
+                float[] history_raw = new float[(size_count+(int)output_dim[0])*num_filters];
                 int list_cout = 0;
                 for(float[] seg:history) {
-                    for(int i = 0; i < num_filters;i++)
+                    for(int i = 0; i < seg.length;i++)
                         history_raw[i+list_cout] = seg[i];
                     list_cout+=seg.length;
                 }
@@ -143,22 +173,24 @@ public class GammaTone extends FeatureExtraction {
                     mean[i] = 0;
                     for(int j = 0; j <fram_num_his;j++)
                         mean[i]+=history_raw[j*num_filters+i];
-                    mean[i] = mean[i]/fram_num_his;
 
+                    mean[i] = mean[i]/fram_num_his;
                     std[i] = 0;
                     for(int j = 0; j < fram_num_his;j++)
                         std[i] += (float)Math.pow(history_raw[j*num_filters+i]-mean[i],2);
                     std[i] =(float) Math.sqrt(std[i]/fram_num_his);
                 }
-
                 size_count += output_dim[0];
+
             }else{
+
                 history.offer(tmp);
                 float[] replaced_tmp = history.poll();
+
                 float[] history_raw = new float[size_count*num_filters];
                 int list_cout = 0;
                 for(float[] seg:history) {
-                    for(int i = 0; i < num_filters;i++)
+                    for(int i = 0; i < seg.length;i++)
                         history_raw[i+list_cout] = seg[i];
                     list_cout+=seg.length;
                 }
@@ -176,13 +208,20 @@ public class GammaTone extends FeatureExtraction {
                         std[i] += (float)Math.pow(history_raw[j*num_filters+i]-mean[i],2);
                     std[i] =(float) Math.sqrt(std[i]/fram_num_his);
                 }
+
+//                String mean_change_output = "mean_change: ";
+//                Log.d("MainActivity", "#################");
 //                for(int i = 0; i < num_filters; i++)
 //                {
 //                    tmp_mean[i] = mean[i];
 //                    mean[i] = 0;
-//                    for(int j = 0; j < output_dim[0];j++)
-//                        mean[i] += tmp[j*num_filters+i]-replaced_tmp[j*num_filters+i];
-//                    mean[i] = tmp_mean[i]+mean[i]/size_count;
+//                    for(int j = 0; j < output_dim[0];j++) {
+//                        mean[i] = mean[i]+((tmp[j * num_filters + i] - replaced_tmp[j * num_filters + i]));
+//                    mean[i]  = tmp_mean[i]+(mean[i]/size_count);
+////                        Log.d("MainActivity", Float.toString(replaced_tmp[j * num_filters + i])+"-"+Float.toString(tmp[j * num_filters + i]));
+//                    }
+//                    mean_change_output = mean_change_output+ "raw: "+Float.toString(mean[i])+" test: "+test_mean[i]+" ";
+//                   // mean[i] = mean[i]/size_count+tmp_mean[i];
 //
 //                    tmp_var[i] = 0;
 //                    tmp_var2[i] = 0;
@@ -194,6 +233,7 @@ public class GammaTone extends FeatureExtraction {
 //                    }
 //                    std[i] = (float)Math.sqrt((std[i]*std[i]*size_count+size_count*(-tmp_mean[i]*tmp_mean[i]+mean[i]*mean[i])-(-tmp_var[i]+tmp_var2[i]))/size_count);
 //                }
+//                Log.d("MainActivity", mean_change_output);
             }
 
             for(int i = 0; i < num_filters;i++)

@@ -10,41 +10,8 @@
 #include <complex>
 #include <mmult/single_mmult.h>
 
-#define SAMPLE_RATE 16000
-#define MAX_FREQUENCY 8000
-#define MIN_FREQUENCY 50
-#define NUM_FILTERS 64
-#define WIDTH 0.5
-#define FFT_SIZE 512
-
-
 using namespace std;
 using namespace Eigen;
-
-extern "C" JNIEXPORT jfloatArray
-JNICALL
-Java_com_example_yckj_vad_1demo_1android_MainActivity_stringFromJNI(
-        JNIEnv *env,
-        jobject /* this */) {
-
-    float a[9];
-    float b[9];
-    for(int i = 0; i < 9;i++){
-        a[i] = 3;
-        b[i] = 2;
-    }
-    float c[9];
-    float a_swap[mc*kc];
-    float b_swap[kc*nc];
-
-    single_mmult(3,3,3,a,a_swap,b,b_swap,c);
-
-    jfloatArray res = (*env).NewFloatArray(9);
-    (*env).SetFloatArrayRegion(res,0,9,c);
-
-    return res;
-}
-
 
 extern "C"
 JNIEXPORT jfloatArray JNICALL
@@ -115,8 +82,7 @@ Java_com_example_yckj_vad_1demo_1android_GammaTone_GammaToneFeature(JNIEnv *env,
     int curr_pos;
 
     int inner_j;
-//    float* mean = (*env).GetFloatArrayElements(mean_,NULL);
-//    float* std = (*env).GetFloatArrayElements(std_,NULL);
+
 
     for(int i = 0; i < num_filters;i++)
     {
@@ -124,7 +90,6 @@ Java_com_example_yckj_vad_1demo_1android_GammaTone_GammaToneFeature(JNIEnv *env,
             curr_pos = inner_j*num_filters+i;
             if (dot_res[curr_pos] < g_floor)
                 dot_res[curr_pos] = g_floor;
-//            dot_res[curr_pos] = (float)(pow(dot_res[curr_pos], 1.0 / 3)-mean[i])/std[i];
             dot_res[curr_pos] = (float)pow(dot_res[curr_pos], 1.0 / 3);
         }
     }
@@ -181,7 +146,6 @@ Java_com_example_yckj_vad_1demo_1android_GammaTone_GammaToneFilters(JNIEnv *env,
     for(int j = 0;j < num_features; j++){
         channel_indices(j) = (double)(64-j);
     }
-
 
     ArrayXd cfreqs = (-EarQ) * minBW + (channel_indices * (log(min_frequency + EarQ * minBW)-log(max_frequency + EarQ * minBW)) / num_features).exp() * (max_frequency + EarQ * minBW);
 
